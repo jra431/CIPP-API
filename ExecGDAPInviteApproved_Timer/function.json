@@ -4,12 +4,12 @@
       "name": "Timer",
       "type": "timerTrigger",
       "direction": "in",
-      "schedule": "0 0 */3 * * 0"
+      "schedule": "0 0 */3 * * *"
     },
     {
       "type": "queue",
       "direction": "out",
-      "name": "Msg",
+      "name": "gdapinvitequeue",
       "queueName": "gdapinvitequeue"
     }
   ]
