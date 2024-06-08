@@ -3,7 +3,9 @@ using namespace System.Net
 Function Invoke-ListMFAUsers {
     <#
     .FUNCTIONALITY
-    Entrypoint
+        Entrypoint
+    .ROLE
+        Identity.User.Read
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
@@ -24,9 +26,24 @@ Function Invoke-ListMFAUsers {
         if (!$Rows) {
             $Queue = New-CippQueueEntry -Name 'MFA Users - All Tenants' -Link '/identity/reports/mfa-report?customerId=AllTenants'
             Write-Information ($Queue | ConvertTo-Json)
-            Push-OutputBinding -Name mfaqueue -Value $Queue.RowKey
+            #Push-OutputBinding -Name mfaqueue -Value $Queue.RowKey
             $GraphRequest = [PSCustomObject]@{
-                UPN = 'Loading data for all tenants. Please check back in 10 minutes'
+                UPN = 'Loading data for all tenants. Please check back in a few minutes'
+            }
+            $Batch = Get-Tenants -IncludeErrors | ForEach-Object {
+                $_ | Add-Member -NotePropertyName FunctionName -NotePropertyValue 'ListMFAUsersQueue'
+                $_ | Add-Member -NotePropertyName QueueId -NotePropertyValue $Queue.RowKey
+                $_
+            }
+            if (($Batch | Measure-Object).Count -gt 0) {
+                $InputObject = [PSCustomObject]@{
+                    OrchestratorName = 'ListMFAUsersOrchestrator'
+                    Batch            = @($Batch)
+                    SkipLog          = $true
+                }
+                #Write-Host ($InputObject | ConvertTo-Json)
+                $InstanceId = Start-NewOrchestration -FunctionName 'CIPPOrchestrator' -InputObject ($InputObject | ConvertTo-Json -Depth 5 -Compress)
+                Write-Host "Started permissions orchestration with ID = '$InstanceId'"
             }
         } else {
             $GraphRequest = $Rows
